@@ -1023,45 +1023,57 @@ function renderProds(filter) {
 
     grid.innerHTML = filtered.map(function(p) {
         var price = "80.00";
-        var itemId = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        // Escape single quotes in names so they don't break the string
+        var safeName = p.name.replace(/'/g, "\\'"); 
 
         return '<div class="prod-card">'
             + '<div class="prod-img" style="background:' + p.bg + ';">'
-            // This pulls in your custom hanger SVG function shown in your screenshots
             + (typeof makeHangerSVG === 'function' ? makeHangerSVG() : '') 
             + '</div>'
             + '<h3>' + p.name + '</h3>'
             + '<p>Sport: ' + p.sport + '</p>'
             + '<p>Price: $' + price + '</p>'
-            + '<button class="snipcart-add-item"'
-            + ' data-item-id="' + itemId + '"'
-            + ' data-item-name="' + p.name + '"'
-            + ' data-item-price="' + price + '"'
-            + ' data-item-url="https://thesportislands.netlify.app/"' // Added trailing slash to match domain root
-            + ' data-item-custom1-name="Sport"'
-            + ' data-item-custom1-value="' + p.sport + '">'
-            + ' Add to Cart'
-            + '</button>'
+            // This clean button uses a direct click function to force open the cart panel instantly
+            + "<button class='btn buy-btn' onclick=\"addToCart('" + safeName + "', '" + price + "', '" + p.sport + "')\">"
+            + " Add to Cart"
+            + "</button>"
             + '</div>';
     }).join('');
-
-
-    // 🔥 THE FIX FOR DYNAMIC LOOPS: Tell Snipcart to re-scan the page for the new buttons!
-    if (window.Snipcart) {
-        document.addEventListener('snipcart.ready', function() {
-            Snipcart.api.items.bind();
-        });
-        // If snipcart is already loaded, bind immediately
-        try {
-            Snipcart.api.items.bind();
-        } catch(e) {}
-    }
 }
 
+// 🛒 THE GOLDEN SCRIPT: Speaking directly to Snipcart's internal engine
+window.addToCart = function(name, price, sport) {
+    if (!window.Snipcart) {
+        alert("Snipcart is still loading... Please wait a second and try again!");
+        return;
+    }
+    
+    var itemId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    
+    Snipcart.api.cart.items.add({
+        id: itemId,
+        name: name,
+        price: parseFloat(price),
+        url: 'https://thesportislands.netlify.app/',
+        quantity: 1,
+        dimensions: {
+            weight: 300 
+        },
+        customFields: [
+            { name: 'Sport', value: sport }
+        ]
+    }).then(function() {
+        // Force the sidebar cart drawer to open up immediately
+        Snipcart.api.theme.cart.open();
+    }).catch(function(error) {
+        console.error("Snipcart Error:", error);
+    });
+};
+
 window.filterProds = function(f, btn) {
-  document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
-  btn.classList.add('active');
-  renderProds(f);
+    document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    renderProds(f);
 };
 
 renderProds();
